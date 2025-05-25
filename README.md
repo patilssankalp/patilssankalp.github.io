@@ -1,2 +1,2 @@
-# Welcome to My GitHub Page
-This site is built with Jekyll and hosted by GitHub Pages!
+# Welcome to My GitHub Page :)
+This site is under construction!
