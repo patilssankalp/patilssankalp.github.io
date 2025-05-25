@@ -1,2 +1,7 @@
-## Welcome to my page :)
-### Under construction!
+---
+layout: default
+title: Home
+---
+
+# Welcome to My GitHub Page
+This site is built with Jekyll and hosted by GitHub Pages!
