@@ -3,3 +3,5 @@ title: Sankalp Patil
 description: Research Engineer at INATECH SSE & Fraunhofer EMI, Freiburg
 logo: https://media.licdn.com/dms/image/v2/D4E03AQGLFYVx0oIQ5g/profile-displayphoto-shrink_800_800/B4EZTWY4bHGYAc-/0/1738763634791?e=1753920000&v=beta&t=58W2iUJQc8btJrP8OCA-AefoKOmEFEb0qwBLztpT2Ys
 show_downloads: false
+plugins:
+  - jemoji
