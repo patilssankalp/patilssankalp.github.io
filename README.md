@@ -1,2 +1,2 @@
-# Welcome to my GitHub page :)
+# Hi there, welcome to my page :)
 This site is under construction :construction:
