@@ -18,7 +18,7 @@
         width: 14px;
         height: 14px;
         border-radius: 50%;
-        background: rgba(20, 20, 20, 0.9);
+        background: rgba(20,20,20,0.9);
         pointer-events: none;
         transform: translate(-50%, -50%);
         z-index: 9999;
@@ -47,15 +47,7 @@
     <div class="wrapper">
       <header>
         <h1><a href="{{ "/" | absolute_url }}">{{ site.title | default: site.github.repository_name }}</a></h1>
-
-        {% if site.logo %}
-          <img src="{{ site.logo | relative_url }}" alt="Logo" />
-        {% endif %}
-
         <p>{{ site.description | default: site.github.project_tagline }}</p>
-
-        <p class="view"><a href="https://www.linkedin.com/in/patilsankalp/">Visit my Linkedin profile</a></p>
-        <p class="view"><a href="https://www.researchgate.net/profile/Sankalp-Patil-2">Checkout my ResearchGate profile</a></p>
       </header>
 
       <section>
@@ -69,16 +61,12 @@
 
     <script src="{{ "/assets/js/scale.fix.js" | relative_url }}"></script>
 
-    <!-- Antigravity Water-Wave Particle System -->
+    <!-- Cursor-Centric Antigravity Fluid Field -->
     <script>
       document.addEventListener("DOMContentLoaded", () => {
 
         /* ---------- Cursor ---------- */
         const cursor = document.querySelector(".cursor");
-        document.addEventListener("mousemove", e => {
-          cursor.style.left = e.clientX + "px";
-          cursor.style.top = e.clientY + "px";
-        });
 
         /* ---------- Canvas ---------- */
         const canvas = document.getElementById("antigravityCanvas");
@@ -92,108 +80,105 @@
         window.addEventListener("resize", resize);
 
         /* ---------- Mouse ---------- */
-        let mouse = { x: canvas.width / 2, y: canvas.height / 2, speed: 0 };
-        let lastMouse = { x: mouse.x, y: mouse.y };
+        const mouse = {
+          x: canvas.width / 2,
+          y: canvas.height / 2,
+          vx: 0,
+          vy: 0
+        };
+
+        let last = { x: mouse.x, y: mouse.y };
 
         document.addEventListener("mousemove", e => {
           mouse.x = e.clientX;
           mouse.y = e.clientY;
-          mouse.speed = Math.hypot(mouse.x - lastMouse.x, mouse.y - lastMouse.y);
-          lastMouse.x = mouse.x;
-          lastMouse.y = mouse.y;
+          mouse.vx = mouse.x - last.x;
+          mouse.vy = mouse.y - last.y;
+          last.x = mouse.x;
+          last.y = mouse.y;
+
+          cursor.style.left = mouse.x + "px";
+          cursor.style.top = mouse.y + "px";
         });
 
-        /* ---------- Color Palette (6 colors) ---------- */
+        /* ---------- Color Palette ---------- */
         const palette = [
-          [88, 101, 242],   // indigo
-          [52, 211, 153],   // emerald
-          [96, 165, 250],   // sky
-          [250, 204, 21],   // amber
-          [244, 114, 182],  // pink
-          [167, 139, 250]   // violet
+          [88,101,242],
+          [52,211,153],
+          [96,165,250],
+          [250,204,21],
+          [244,114,182],
+          [167,139,250]
         ];
 
-        function lerp(a, b, t) {
-          return a + (b - a) * t;
-        }
+        const lerp = (a,b,t) => a + (b-a)*t;
 
-        function colorFromField(x, y) {
-          const dx = x - mouse.x;
-          const dy = y - mouse.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const angle = Math.atan2(dy, dx) + Math.PI;
-
-          const idx = Math.floor((angle / (Math.PI * 2)) * palette.length);
+        function fieldColor(angle, wave) {
+          const idx = Math.floor(angle / (Math.PI * 2) * palette.length);
           const next = (idx + 1) % palette.length;
-
-          const t = (dist % 200) / 200;
-          const c1 = palette[idx];
-          const c2 = palette[next];
+          const t = (Math.sin(wave) + 1) / 2;
 
           return `rgba(
-            ${lerp(c1[0], c2[0], t)},
-            ${lerp(c1[1], c2[1], t)},
-            ${lerp(c1[2], c2[2], t)},
+            ${lerp(palette[idx][0], palette[next][0], t)},
+            ${lerp(palette[idx][1], palette[next][1], t)},
+            ${lerp(palette[idx][2], palette[next][2], t)},
             0.75
           )`;
         }
 
         /* ---------- Particles ---------- */
         const particles = [];
-        const COUNT = 180;
-        const BASE_WAVE = 0.6;
+        const COUNT = 420;
+        const SPHERE_RADIUS = 120;
 
         class Particle {
-          constructor() {
-            this.x = Math.random() * canvas.width;
-            this.y = Math.random() * canvas.height;
-            this.baseX = this.x;
-            this.baseY = this.y;
+          constructor(i) {
+            this.angle = Math.random() * Math.PI * 2;
+            this.radius = Math.random() * SPHERE_RADIUS;
+            this.waveOffset = Math.random() * Math.PI * 2;
+            this.size = Math.random() * 2 + 1;
+            this.x = mouse.x;
+            this.y = mouse.y;
             this.vx = 0;
             this.vy = 0;
-            this.phase = Math.random() * Math.PI * 2;
-            this.radius = Math.random() * 2 + 1;
           }
 
           update(time) {
-            // Water-like idle waves
-            const wave = Math.sin(time * 0.002 + this.phase) * BASE_WAVE;
-            this.vx += wave * 0.02;
-            this.vy += Math.cos(time * 0.002 + this.phase) * BASE_WAVE * 0.02;
+            // Stress wave
+            const wave = Math.sin(time * 0.003 + this.waveOffset);
 
-            // Cursor amplification
-            const dx = this.x - mouse.x;
-            const dy = this.y - mouse.y;
-            const d = Math.sqrt(dx * dx + dy * dy);
+            // Target radial position relative to cursor
+            const targetX =
+              mouse.x + Math.cos(this.angle) * (this.radius + wave * 12);
+            const targetY =
+              mouse.y + Math.sin(this.angle) * (this.radius + wave * 12);
 
-            if (d < 160) {
-              const f = (160 - d) / 160;
-              this.vx += (dx / d) * f * (mouse.speed * 0.002);
-              this.vy += (dy / d) * f * (mouse.speed * 0.002);
-            }
+            // Spring force to target
+            this.vx += (targetX - this.x) * 0.02;
+            this.vy += (targetY - this.y) * 0.02;
 
-            this.vx *= 0.96;
-            this.vy *= 0.96;
+            // Cursor motion drag
+            this.vx += mouse.vx * 0.04;
+            this.vy += mouse.vy * 0.04;
+
+            // Damping
+            this.vx *= 0.85;
+            this.vy *= 0.85;
 
             this.x += this.vx;
             this.y += this.vy;
-
-            if (this.x < 0) this.x = canvas.width;
-            if (this.x > canvas.width) this.x = 0;
-            if (this.y < 0) this.y = canvas.height;
-            if (this.y > canvas.height) this.y = 0;
           }
 
-          draw() {
+          draw(time) {
             ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            ctx.fillStyle = colorFromField(this.x, this.y);
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fillStyle = fieldColor(this.angle, time * 0.004 + this.waveOffset);
             ctx.fill();
           }
         }
 
         for (let i = 0; i < COUNT; i++) {
-          particles.push(new Particle());
+          particles.push(new Particle(i));
         }
 
         /* ---------- Animation ---------- */
@@ -201,7 +186,7 @@
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           particles.forEach(p => {
             p.update(time);
-            p.draw();
+            p.draw(time);
           });
           requestAnimationFrame(animate);
         }
