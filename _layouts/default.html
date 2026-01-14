@@ -11,6 +11,25 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script>
     <![endif]-->
     {% include head-custom.html %}
+    <style>
+      /* Hide default cursor */
+      body {
+        cursor: none;
+      }
+  
+      /* Custom cursor */
+      .cursor {
+        position: fixed;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.8);
+        pointer-events: none;
+        transform: translate(-50%, -50%);
+        z-index: 9999;
+        transition: transform 0.08s ease-out;
+      }
+    </style>    
   </head>
   <body>
     <div class="wrapper">
@@ -56,5 +75,44 @@
       </footer>
     </div>
     <script src="{{ "/assets/js/scale.fix.js" | relative_url }}"></script>
+    <div class="cursor"></div>
+    <script>
+      const cursor = document.querySelector('.cursor');
+      let mouseX = 0, mouseY = 0;
+
+      document.addEventListener('mousemove', (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+        cursor.style.left = mouseX + 'px';
+        cursor.style.top = mouseY + 'px';
+      });
+
+      // Antigravity-like repulsion
+      const repelDistance = 120;
+      const strength = 0.4;
+
+      document.querySelectorAll('a, p, h1, h2, img, li').forEach(el => {
+        el.style.transition = 'transform 0.2s ease-out';
+
+        document.addEventListener('mousemove', (e) => {
+          const rect = el.getBoundingClientRect();
+          const elX = rect.left + rect.width / 2;
+          const elY = rect.top + rect.height / 2;
+
+          const dx = elX - e.clientX;
+          const dy = elY - e.clientY;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < repelDistance) {
+            const force = (repelDistance - distance) / repelDistance;
+            const moveX = dx * force * strength;
+            const moveY = dy * force * strength;
+            el.style.transform = `translate(${moveX}px, ${moveY}px)`;
+          } else {
+            el.style.transform = 'translate(0, 0)';
+          }
+        });
+      });
+    </script>
   </body>
 </html>
