@@ -1,209 +1,192 @@
 <!DOCTYPE html>
 <html lang="{{ site.lang | default: "en-US" }}">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  {% seo %}
-  <link rel="stylesheet" href="{{ "/assets/css/style.css?v=" | append: site.github.build_revision | relative_url }}">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <style>
-    body { cursor: none; }
-    .cursor {
-      position: fixed;
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: rgba(20,20,20,0.9);
-      pointer-events: none;
-      transform: translate(-50%, -50%);
-      z-index: 9999;
-    }
-    #antigravityCanvas {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 0;
-    }
-    .wrapper { position: relative; z-index: 1; }
-  </style>
+    {% seo %}
+    <link rel="stylesheet" href="{{ "/assets/css/style.css?v=" | append: site.github.build_revision | relative_url }}">
 
-  {% include head-custom.html %}
-</head>
+    <style>
+      body { cursor: none; }
 
-<body>
-<div class="cursor"></div>
-<canvas id="antigravityCanvas"></canvas>
+      .cursor {
+        position: fixed;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: rgba(20,20,20,0.9);
+        pointer-events: none;
+        transform: translate(-50%, -50%);
+        z-index: 9999;
+      }
 
-<div class="wrapper">
-  <header>
-    <h1><a href="{{ "/" | absolute_url }}">{{ site.title }}</a></h1>
-    <p>{{ site.description }}</p>
-  </header>
-  <section>{{ content }}</section>
-  <footer><small>Hosted on GitHub Pages</small></footer>
-</div>
+      #antigravityCanvas {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+      }
 
-<script src="{{ "/assets/js/scale.fix.js" | relative_url }}"></script>
+      .wrapper { position: relative; z-index: 1; }
+    </style>
 
-<script>
-document.addEventListener("DOMContentLoaded", () => {
+    {% include head-custom.html %}
+  </head>
 
-  /* ================= USER CONTROLS ================= */
-  const FIELD_RADIUS = 180;
-  const RADIAL_LAYERS = 18;
-  const ANGULAR_DENSITY = 22;
-  const SPRING_STIFFNESS = 0.08;
-  const VOLUME_STIFFNESS = 0.015;
-  const DAMPING = 0.88;
-  /* ================================================= */
+  <body>
+    <div class="cursor"></div>
+    <canvas id="antigravityCanvas"></canvas>
 
-  const canvas = document.getElementById("antigravityCanvas");
-  const ctx = canvas.getContext("2d");
-  const cursor = document.querySelector(".cursor");
+    <div class="wrapper">
+      <header>
+        <h1><a href="{{ "/" | absolute_url }}">{{ site.title }}</a></h1>
+        <p>{{ site.description }}</p>
+      </header>
 
-  function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-  resize();
-  window.addEventListener("resize", resize);
+      <section>{{ content }}</section>
 
-  const mouse = { x: canvas.width/2, y: canvas.height/2, vx:0, vy:0 };
-  let last = { x: mouse.x, y: mouse.y };
+      <footer>
+        <p><small>Hosted on GitHub Pages</small></p>
+      </footer>
+    </div>
 
-  document.addEventListener("mousemove", e => {
-    mouse.vx = e.clientX - last.x;
-    mouse.vy = e.clientY - last.y;
-    mouse.x = e.clientX;
-    mouse.y = e.clientY;
-    last.x = mouse.x;
-    last.y = mouse.y;
-    cursor.style.left = mouse.x + "px";
-    cursor.style.top = mouse.y + "px";
-  });
+    <script src="{{ "/assets/js/scale.fix.js" | relative_url }}"></script>
 
-  /* ---------- Color ---------- */
-  const palette = [
-    [88,101,242],[52,211,153],[96,165,250],
-    [250,204,21],[244,114,182],[167,139,250]
-  ];
-  const lerp = (a,b,t)=>a+(b-a)*t;
+    <!-- Ordered Jelly-Ball Ocean Wave Field -->
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
 
-  function color(angle, dist, wave) {
-    if (dist < FIELD_RADIUS*0.45) {
-      const g = Math.floor(lerp(245,190,dist/(FIELD_RADIUS*0.45)));
-      return `rgba(${g},${g},${g},0.9)`;
-    }
-    const idx = Math.floor(angle/(Math.PI*2)*palette.length);
-    const next = (idx+1)%palette.length;
-    const t = (Math.sin(wave)+1)/2;
-    return `rgba(
-      ${lerp(palette[idx][0],palette[next][0],t)},
-      ${lerp(palette[idx][1],palette[next][1],t)},
-      ${lerp(palette[idx][2],palette[next][2],t)},
-      0.75
-    )`;
-  }
+        /* ===== USER PARAMETERS ===== */
+        const FIELD_RADIUS = 180;
+        const RADIAL_LAYERS = 18;
+        const ANGULAR_DENSITY = 22;
+        const WAVE_STRENGTH = 0.32;
+        const DAMPING = 0.90;
+        /* =========================== */
 
-  /* ---------- Particle ---------- */
-  class Particle {
-    constructor(angle, radius, layer, index, ringSize) {
-      this.angle = angle;
-      this.radius = radius;
-      this.layer = layer;
-      this.index = index;
-      this.ringSize = ringSize;
-      this.x = mouse.x;
-      this.y = mouse.y;
-      this.vx = 0;
-      this.vy = 0;
-      this.phase = Math.random()*Math.PI*2;
-      this.size = Math.random()*1.5+1;
-      this.neighbors = [];
-    }
+        const canvas = document.getElementById("antigravityCanvas");
+        const ctx = canvas.getContext("2d");
 
-    update(time) {
-      const restX = mouse.x + Math.cos(this.angle)*this.radius;
-      const restY = mouse.y + Math.sin(this.angle)*this.radius;
+        function resize() {
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener("resize", resize);
 
-      const dx = this.x - mouse.x;
-      const dy = this.y - mouse.y;
-      const dist = Math.sqrt(dx*dx+dy*dy)+0.001;
+        const cursor = document.querySelector(".cursor");
+        const mouse = { x: canvas.width/2, y: canvas.height/2, vx: 0, vy: 0 };
+        let last = { x: mouse.x, y: mouse.y };
 
-      const wave =
-        Math.sin(dist*0.055 - time*0.004 + this.phase) +
-        Math.sin(dist*0.02  - time*0.002);
+        document.addEventListener("mousemove", e => {
+          mouse.vx = e.clientX - last.x;
+          mouse.vy = e.clientY - last.y;
+          mouse.x = e.clientX;
+          mouse.y = e.clientY;
+          last.x = mouse.x;
+          last.y = mouse.y;
 
-      const nx = dx/dist, ny = dy/dist;
-      this.vx += nx*wave*0.25;
-      this.vy += ny*wave*0.25;
+          cursor.style.left = mouse.x + "px";
+          cursor.style.top = mouse.y + "px";
+        });
 
-      // Neighbor springs (mesh)
-      this.neighbors.forEach(n => {
-        const dx = n.x - this.x;
-        const dy = n.y - this.y;
-        this.vx += dx * SPRING_STIFFNESS;
-        this.vy += dy * SPRING_STIFFNESS;
+        /* ---------- Color Palette ---------- */
+        const palette = [
+          [88,101,242],[52,211,153],[96,165,250],
+          [250,204,21],[244,114,182],[167,139,250]
+        ];
+        const lerp = (a,b,t)=>a+(b-a)*t;
+
+        function particleColor(angle, dist) {
+          if(dist < FIELD_RADIUS*0.45){
+            const g = Math.floor(lerp(245,190,dist/(FIELD_RADIUS*0.45)));
+            return `rgba(${g},${g},${g},0.85)`;
+          }
+          const idx = Math.floor(angle/(Math.PI*2)*palette.length);
+          const next = (idx+1)%palette.length;
+          const t = (dist % 140)/140;
+          return `rgba(
+            ${lerp(palette[idx][0],palette[next][0],t)},
+            ${lerp(palette[idx][1],palette[next][1],t)},
+            ${lerp(palette[idx][2],palette[next][2],t)},
+            0.75
+          )`;
+        }
+
+        /* ---------- Particle ---------- */
+        class Particle {
+          constructor(angle, radius){
+            this.angle = angle;
+            this.radius = radius;
+            this.x = mouse.x;
+            this.y = mouse.y;
+            this.vx = 0;
+            this.vy = 0;
+            this.phase = Math.random()*Math.PI*2;
+            this.size = Math.random()*1.8+1;
+          }
+
+          update(time){
+            const restX = mouse.x + Math.cos(this.angle)*this.radius;
+            const restY = mouse.y + Math.sin(this.angle)*this.radius;
+
+            const dx = this.x - mouse.x;
+            const dy = this.y - mouse.y;
+            const dist = Math.sqrt(dx*dx+dy*dy)+0.001;
+
+            const wave = Math.sin(dist*0.055 - time*0.004 + this.phase);
+
+            const nx = dx/dist, ny = dy/dist;
+            this.vx += nx*wave*WAVE_STRENGTH;
+            this.vy += ny*wave*WAVE_STRENGTH;
+
+            this.vx += (restX - this.x)*0.02;
+            this.vy += (restY - this.y)*0.02;
+
+            this.vx += mouse.vx*0.018;
+            this.vy += mouse.vy*0.018;
+
+            this.vx *= DAMPING;
+            this.vy *= DAMPING;
+
+            this.x += this.vx;
+            this.y += this.vy;
+          }
+
+          draw(time){
+            const dx = this.x - mouse.x;
+            const dy = this.y - mouse.y;
+            const dist = Math.sqrt(dx*dx+dy*dy);
+            const angle = Math.atan2(dy,dx)+Math.PI;
+
+            ctx.beginPath();
+            ctx.arc(this.x,this.y,this.size,0,Math.PI*2);
+            ctx.fillStyle = particleColor(angle,dist);
+            ctx.fill();
+          }
+        }
+
+        /* ---------- Build Jelly Lattice ---------- */
+        const particles = [];
+        for(let layer=1; layer<=RADIAL_LAYERS; layer++){
+          const r = FIELD_RADIUS*layer/RADIAL_LAYERS;
+          const count = Math.max(6,Math.floor(ANGULAR_DENSITY*layer/RADIAL_LAYERS));
+          for(let i=0;i<count;i++){
+            const angle = (i/count)*Math.PI*2;
+            particles.push(new Particle(angle,r));
+          }
+        }
+
+        function animate(time){
+          ctx.clearRect(0,0,canvas.width,canvas.height);
+          particles.forEach(p=>{ p.update(time); p.draw(time); });
+          requestAnimationFrame(animate);
+        }
+
+        animate(0);
       });
-
-      // Volume preservation
-      this.vx += (restX - this.x) * VOLUME_STIFFNESS;
-      this.vy += (restY - this.y) * VOLUME_STIFFNESS;
-
-      // Cursor energy
-      this.vx += mouse.vx*0.02;
-      this.vy += mouse.vy*0.02;
-
-      this.vx *= DAMPING;
-      this.vy *= DAMPING;
-
-      this.x += this.vx;
-      this.y += this.vy;
-    }
-
-    draw(time) {
-      const dx = this.x - mouse.x;
-      const dy = this.y - mouse.y;
-      const dist = Math.sqrt(dx*dx+dy*dy);
-      const angle = Math.atan2(dy,dx)+Math.PI;
-
-      ctx.beginPath();
-      ctx.arc(this.x,this.y,this.size,0,Math.PI*2);
-      ctx.fillStyle = color(angle,dist,time*0.004+this.phase);
-      ctx.fill();
-    }
-  }
-
-  /* ---------- Build Jelly Mesh ---------- */
-  const rings = [];
-  for (let l=1; l<=RADIAL_LAYERS; l++) {
-    const r = FIELD_RADIUS*l/RADIAL_LAYERS;
-    const count = Math.max(6,Math.floor(ANGULAR_DENSITY*l/RADIAL_LAYERS));
-    const ring = [];
-    for (let i=0;i<count;i++) {
-      ring.push(new Particle(i/count*Math.PI*2,r,l,i,count));
-    }
-    rings.push(ring);
-  }
-
-  // Connect neighbors
-  rings.forEach((ring,l)=>{
-    ring.forEach((p,i)=>{
-      p.neighbors.push(ring[(i+1)%ring.length], ring[(i-1+ring.length)%ring.length]);
-      if (rings[l-1]) p.neighbors.push(rings[l-1][Math.floor(i*rings[l-1].length/ring.length)]);
-      if (rings[l+1]) p.neighbors.push(rings[l+1][Math.floor(i*rings[l+1].length/ring.length)]);
-    });
-  });
-
-  const particles = rings.flat();
-
-  function animate(time){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    particles.forEach(p=>{ p.update(time); p.draw(time); });
-    requestAnimationFrame(animate);
-  }
-  animate(0);
-});
-</script>
-</body>
+    </script>
+  </body>
 </html>
