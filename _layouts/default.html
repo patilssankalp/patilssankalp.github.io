@@ -9,9 +9,7 @@
     <link rel="stylesheet" href="{{ "/assets/css/style.css?v=" | append: site.github.build_revision | relative_url }}">
 
     <style>
-      body {
-        cursor: none;
-      }
+      body { cursor: none; }
 
       .cursor {
         position: fixed;
@@ -50,9 +48,7 @@
         <p>{{ site.description | default: site.github.project_tagline }}</p>
       </header>
 
-      <section>
-        {{ content }}
-      </section>
+      <section>{{ content }}</section>
 
       <footer>
         <p><small>Hosted on GitHub Pages</small></p>
@@ -61,11 +57,17 @@
 
     <script src="{{ "/assets/js/scale.fix.js" | relative_url }}"></script>
 
-    <!-- Oceanic Antigravity Field -->
+    <!-- Ordered Ocean-Wave Antigravity Field -->
     <script>
       document.addEventListener("DOMContentLoaded", () => {
 
-        /* ---------- Canvas ---------- */
+        /* ================= USER CONTROLS ================= */
+        const FIELD_RADIUS = 180;   // <<< MAIN CONTROL
+        const WAVE_STRENGTH = 0.35;
+        const DAMPING = 0.90;
+        const PARTICLE_COUNT = 520;
+        /* ================================================= */
+
         const canvas = document.getElementById("antigravityCanvas");
         const ctx = canvas.getContext("2d");
 
@@ -76,10 +78,8 @@
         resize();
         window.addEventListener("resize", resize);
 
-        /* ---------- Cursor ---------- */
         const cursor = document.querySelector(".cursor");
 
-        /* ---------- Mouse ---------- */
         const mouse = {
           x: canvas.width / 2,
           y: canvas.height / 2,
@@ -90,10 +90,10 @@
         let last = { x: mouse.x, y: mouse.y };
 
         document.addEventListener("mousemove", e => {
+          mouse.vx = e.clientX - last.x;
+          mouse.vy = e.clientY - last.y;
           mouse.x = e.clientX;
           mouse.y = e.clientY;
-          mouse.vx = mouse.x - last.x;
-          mouse.vy = mouse.y - last.y;
           last.x = mouse.x;
           last.y = mouse.y;
 
@@ -101,7 +101,7 @@
           cursor.style.top = mouse.y + "px";
         });
 
-        /* ---------- Color Palette ---------- */
+        /* ---------- Color ---------- */
         const palette = [
           [88,101,242],
           [52,211,153],
@@ -110,21 +110,16 @@
           [244,114,182],
           [167,139,250]
         ];
-
         const lerp = (a,b,t) => a + (b-a)*t;
 
-        function oceanColor(angle, dist, wave) {
-          // Inner calm zone (white → gray)
-          if (dist < 90) {
-            const g = Math.floor(lerp(245, 180, dist / 90));
+        function particleColor(angle, dist) {
+          if (dist < FIELD_RADIUS * 0.45) {
+            const g = Math.floor(lerp(245, 190, dist / (FIELD_RADIUS * 0.45)));
             return `rgba(${g},${g},${g},0.85)`;
           }
-
-          // Outer chromatic field
-          const idx = Math.floor((angle / (Math.PI * 2)) * palette.length);
+          const idx = Math.floor(angle / (Math.PI * 2) * palette.length);
           const next = (idx + 1) % palette.length;
-          const t = (Math.sin(wave) + 1) / 2;
-
+          const t = (dist % 120) / 120;
           return `rgba(
             ${lerp(palette[idx][0], palette[next][0], t)},
             ${lerp(palette[idx][1], palette[next][1], t)},
@@ -133,14 +128,15 @@
           )`;
         }
 
-        /* ---------- Particles ---------- */
-        const particles = [];
-        const COUNT = 520;
-
+        /* ---------- Particle ---------- */
         class Particle {
           constructor() {
-            this.x = Math.random() * canvas.width;
-            this.y = Math.random() * canvas.height;
+            this.angle = Math.random() * Math.PI * 2;
+            this.radius = Math.random() * FIELD_RADIUS;
+            this.restX = 0;
+            this.restY = 0;
+            this.x = 0;
+            this.y = 0;
             this.vx = 0;
             this.vy = 0;
             this.phase = Math.random() * Math.PI * 2;
@@ -148,47 +144,41 @@
           }
 
           update(time) {
+            // Rest position relative to cursor
+            this.restX = mouse.x + Math.cos(this.angle) * this.radius;
+            this.restY = mouse.y + Math.sin(this.angle) * this.radius;
+
             const dx = this.x - mouse.x;
             const dy = this.y - mouse.y;
             const dist = Math.sqrt(dx*dx + dy*dy) + 0.001;
 
-            /* ---- Wave propagation ---- */
+            // Standing wave
             const wave =
-              Math.sin(dist * 0.035 - time * 0.004 + this.phase);
+              Math.sin(dist * 0.06 - time * 0.004 + this.phase);
 
-            // Direction-normalized
-            const nx = dx / dist;
-            const ny = dy / dist;
+            // Wave force (radial, ordered)
+            const nx = (this.x - mouse.x) / dist;
+            const ny = (this.y - mouse.y) / dist;
 
-            // Pressure wave force (ocean-like)
-            const pressure = wave * 0.4;
+            this.vx += nx * wave * WAVE_STRENGTH;
+            this.vy += ny * wave * WAVE_STRENGTH;
 
-            this.vx += nx * pressure;
-            this.vy += ny * pressure;
+            // Soft spring back to rest (prevents escape)
+            this.vx += (this.restX - this.x) * 0.015;
+            this.vy += (this.restY - this.y) * 0.015;
 
-            /* ---- Cursor movement injects swell ---- */
-            this.vx += mouse.vx * 0.015;
-            this.vy += mouse.vy * 0.015;
+            // Cursor motion injects wave energy
+            this.vx += mouse.vx * 0.02;
+            this.vy += mouse.vy * 0.02;
 
-            /* ---- Ambient drift ---- */
-            this.vx += Math.sin(time * 0.001 + this.phase) * 0.02;
-            this.vy += Math.cos(time * 0.001 + this.phase) * 0.02;
-
-            /* ---- Damping ---- */
-            this.vx *= 0.92;
-            this.vy *= 0.92;
+            this.vx *= DAMPING;
+            this.vy *= DAMPING;
 
             this.x += this.vx;
             this.y += this.vy;
-
-            // Wrap edges
-            if (this.x < 0) this.x = canvas.width;
-            if (this.x > canvas.width) this.x = 0;
-            if (this.y < 0) this.y = canvas.height;
-            if (this.y > canvas.height) this.y = 0;
           }
 
-          draw(time) {
+          draw() {
             const dx = this.x - mouse.x;
             const dy = this.y - mouse.y;
             const dist = Math.sqrt(dx*dx + dy*dy);
@@ -196,21 +186,24 @@
 
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-            ctx.fillStyle = oceanColor(angle, dist, time * 0.004 + this.phase);
+            ctx.fillStyle = particleColor(angle, dist);
             ctx.fill();
           }
         }
 
-        for (let i = 0; i < COUNT; i++) {
-          particles.push(new Particle());
+        const particles = [];
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+          const p = new Particle();
+          p.x = mouse.x;
+          p.y = mouse.y;
+          particles.push(p);
         }
 
-        /* ---------- Animation ---------- */
         function animate(time) {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           particles.forEach(p => {
             p.update(time);
-            p.draw(time);
+            p.draw();
           });
           requestAnimationFrame(animate);
         }
